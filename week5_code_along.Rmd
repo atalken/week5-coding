@@ -83,11 +83,99 @@ Are male chinstrap penuins significantly larger (body mass) than female chinstra
 t.test(chinstraps_m, chinstraps_f, alternative = "greater") # order of vectors and values matters: are chinstraps body mass for MALE greater than FEMALE
 ```
 
+## One-way ANOVA
 
+### 1. Table of counts by species and sex
 
+```{r}
+penguins_counts <- penguins %>% 
+  count(species, sex) #Making a table of number of penguins by species and sex
+penguins_counts
+```
 
+Create a subset of only female penguins
 
+```{r}
+penguin_f <- penguins %>% 
+  filter(sex == "female")
 
+ggplot(data = penguin_f, aes(x = flipper_length_mm)) +
+  geom_histogram(aes(fill = species)) +
+  facet_wrap(~species, scales = "free") # gives each graph its own scale on the y-axis
+
+ggplot(data = penguin_f, aes(sample = flipper_length_mm)) +
+  geom_qq(aes(color = species)) +
+  facet_wrap(~species, scales = "free")
+```
+
+### Summary statistics
+
+Starting from penguins_f, create a summary table that groups by species and returns the following:
+- mean of the flipper length
+- sd
+- sample size
+- variance 'var'
+- standard error = sd/sqrt(n)
+
+```{r}
+penguin_f_summary <- penguin_f %>% 
+  group_by(species) %>% 
+  summarize(
+    mean_flipper = mean(flipper_length_mm),
+    sd_flipper = sd(flipper_length_mm),
+    variance_flipper = var(flipper_length_mm),
+    sample_size = n(),
+    se_flipper = sd(flipper_length_mm)/sqrt(n())
+  )
+
+# Levene test for equal variance.... but even if there is a significant difference with a Levene test, it could just be because the sample size is so large
+
+leveneTest(flipper_length_mm ~ species, data = penguin_f)
+
+# 0.05782 is greater than the 0.05 level, so we retain the NULL hypothesis
+```
+
+### Beeswarm plot with mean +- 1sd
+
+Shows distribution of observations
+
+```{r}
+ggplot() + 
+  geom_beeswarm(data = penguin_f, 
+                aes(x = species, y = flipper_length_mm),
+                color = "gray70",
+                size = 3,
+                alpha = 0.9) + # transparency
+geom_point(data = penguin_f_summary, aes(x = species, y = mean_flipper),
+           size = 4) +
+  geom_errorbar(data = penguin_f_summary, 
+                aes( x = species, 
+                     ymax = mean_flipper + sd_flipper,
+                     ymin = mean_flipper - sd_flipper),
+                width = 0.1) + # chnages width of the error bar
+  theme_light()
+```
+
+### One-way ANOVA
+
+```{r}
+penguin_aov <- aov(flipper_length_mm ~ species, data = penguin_f)
+summary(penguin_aov) # displays the anova below
+
+# Large F-stat means that the variance between groups is very large compared to the variance within groups....reject null hypothesis
+
+TukeyHSD(penguin_aov) #pairwise adjusted p-value for each two pair comparison
+```
+
+Type III ANOVA with the car package
+
+Use Type III if you have an unbalanced design
+
+```{r}
+penguin_lm <- lm(flipper_length_mm ~ species, data = penguin_f) # Create a linear model
+penguin_aov_t3 <- Anova(penguin_lm, type = "III")
+penguin_aov_t3
+```
 
 
 
